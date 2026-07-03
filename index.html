@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Noob Incremental Calculators</title>
+<style>
+
+  :root {
+    --bg: #000008;
+    --surface: #0a0b12;
+    --surface2: #0f1018;
+    --surface3: #161820;
+    --border: rgba(255,255,255,0.06);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8e9f0;
+    --muted: #6b6f8a;
+    --dim: #383a52;
+    --accent: #7c6af7;
+    --accent2: #a899ff;
+    --accent-glow: rgba(124,106,247,0.15);
+    --green: #4ade80;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Consolas', 'Cascadia Code', monospace;
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; color: inherit; }
+
+  /* ── Stars canvas ── */
+  #stars-canvas {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    --text: #e8e9f0;
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 220px;
+    height: 100vh;
+    background: rgba(10,11,18,0.95);
+    backdrop-filter: blur(12px);
+    border-right: 1px solid var(--border2);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0;
+    z-index: 100;
+    overflow-y: auto;
+  }
+  .logo { padding: 22px 18px 18px; border-bottom: 1px solid var(--border); }
+  .logo-icon { font-size: 26px; margin-bottom: 6px; }
+  .logo-title { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; line-height: 1.4; }
+
+  .nav { padding: 12px 10px; flex: 1; }
+  .nav-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); padding: 0 8px; margin-bottom: 6px; margin-top: 14px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 10px; border-radius: var(--radius);
+    cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 500;
+    transition: all 0.2s; user-select: none;
+  }
+  .nav-item:hover { background: rgba(124,106,247,0.08); color: var(--text); }
+  .nav-item.active { background: var(--accent-glow); color: var(--text); border: 1px solid rgba(124,106,247,0.25); }
+  .nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
+
+  /* ── Main ── */
+  .main {
+    margin-left: 220px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 1;
+  }
+
+  .topbar {
+    background: rgba(10,11,18,0.8);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .topbar-title { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+  .topbar-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(124,106,247,0.08);
+    border: 1px solid rgba(124,106,247,0.2);
+    border-radius: 20px; padding: 5px 14px;
+    font-size: 11px; color: var(--muted); font-weight: 500;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); flex-shrink: 0; }
+
+  .content {
+    padding: 24px 28px;
+    flex: 1;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── Cards ── */
+  .card {
+    background: rgba(15,16,24,0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+  }
+  .card-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 16px; }
+
+  /* ── Rock cards ── */
+  .rocks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+
+  .rock-card {
+    background: rgba(15,16,24,0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px; cursor: pointer;
+    position: relative; overflow: hidden;
+    transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s ease, border-color 0.2s;
+  }
+  .rock-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--rock-color, var(--accent));
+    box-shadow: 0 0 12px var(--rock-color, var(--accent));
+  }
+  .rock-card::after {
+    content: ''; position: absolute; inset: 0; border-radius: var(--radius-lg);
+    background: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .rock-card:hover {
+    transform: scale(1.045);
+    border-color: var(--rock-color, var(--accent));
+    box-shadow: 0 0 24px -4px var(--rock-color, var(--accent)), 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .rock-card:active { transform: scale(0.97); }
+
+  .rock-name { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 10px; }
+  .rock-hp-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .rock-hp-bar { height: 3px; background: var(--surface3); border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
+  .rock-hp-fill { height: 100%; background: var(--rock-color, var(--accent)); border-radius: 2px; box-shadow: 0 0 6px var(--rock-color, var(--accent)); }
+  .rock-drops { display: flex; flex-direction: column; gap: 5px; }
+  .rock-drop { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+  .rock-drop-name { color: var(--muted); }
+  .rock-drop-pct { font-family: var(--mono); font-size: 11px; color: var(--text); background: rgba(255,255,255,0.05); padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border); }
+
+  /* ── Stat cards ── */
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat-card {
+    background: rgba(15,16,24,0.7); border: 1px solid var(--border2);
+    border-radius: var(--radius-lg); padding: 16px 18px;
+    transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s;
+  }
+  .stat-card:hover {
+    transform: scale(1.04);
+    box-shadow: 0 0 20px -4px var(--accent), 0 6px 24px rgba(0,0,0,0.4);
+    border-color: rgba(124,106,247,0.4);
+  }
+  .stat-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
+  .stat-value { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; font-family: var(--mono); }
+  .stat-sub { font-size: 11px; color: var(--dim); margin-top: 2px; }
+
+  /* ── Calculator ── */
+  .calc-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .input-group { margin-bottom: 14px; }
+  .input-label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; display: block; letter-spacing: .02em; }
+
+  input, select {
+    width: 100%;
+    background: rgba(10,11,18,0.8);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text); font-family: var(--font); font-size: 14px;
+    padding: 9px 12px; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124,106,247,0.2), 0 0 12px rgba(124,106,247,0.15);
+  }
+  select option { background: #0a0b12; }
+
+  .result-highlight {
+    background: rgba(124,106,247,0.08);
+    border: 1px solid rgba(124,106,247,0.3);
+    border-radius: var(--radius-lg); padding: 24px; text-align: center; margin-top: 14px;
+    box-shadow: 0 0 30px -8px rgba(124,106,247,0.4);
+  }
+  .result-big { font-size: 38px; font-weight: 700; font-family: var(--mono); color: var(--text); letter-spacing: -0.04em; }
+  .result-label-sm { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .result-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .result-mini {
+    background: rgba(15,16,24,0.8); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px; text-align: center;
+    transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s, border-color 0.2s;
+  }
+  .result-mini:hover {
+    transform: scale(1.06);
+    box-shadow: 0 0 16px -4px var(--accent);
+    border-color: rgba(124,106,247,0.35);
+  }
+  .result-mini-val { font-size: 18px; font-weight: 700; font-family: var(--mono); }
+  .result-mini-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .empty { text-align: center; padding: 40px; color: var(--dim); font-size: 13px; }
+
+  /* Friend rows */
+  .friend-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; margin-bottom: 8px; }
+  .friend-row .input-group { margin-bottom: 0; }
+  .remove-btn {
+    height: 38px; width: 38px; flex-shrink: 0;
+    background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.25);
+    border-radius: var(--radius); color: #f87171; font-size: 16px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .remove-btn:hover { background: rgba(248,113,113,0.2); border-color: rgba(248,113,113,0.5); }
+  .add-friend-btn {
+    width: 100%; padding: 8px; margin-top: 6px;
+    background: rgba(124,106,247,0.08); border: 1px dashed rgba(124,106,247,0.3);
+    border-radius: var(--radius); color: var(--accent2); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; letter-spacing: .02em;
+  }
+  .add-friend-btn:hover { background: rgba(124,106,247,0.15); border-color: rgba(124,106,247,0.5); }
+  .section-divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin-bottom: 10px; }
+  .hint { font-size: 11px; color: var(--dim); margin-top: 5px; }
+
+  details[open] .arrow { transform: rotate(90deg); }
+  body.page-home .sidebar { display: none; }
+  body.page-home .sidebar { display: none !important; }
+  body.page-home .main { margin-left: 0 !important; }
+  body.page-home .topbar-title { display: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary { outline: none; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(124,106,247,0.3); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(124,106,247,0.5); }
+
+  @media (max-width: 700px) {
+    .sidebar { width: 56px; }
+    .sidebar .logo-title, .nav-item span, .nav-label { display: none; }
+    .nav-item { justify-content: center; }
+    .main { margin-left: 56px; }
+    .calc-layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── Capsule page ── */
+  .capsule-layout { display: grid; grid-template-columns: 260px 1fr; gap: 16px; align-items: start; }
+  @media (max-width:800px) { .capsule-layout { grid-template-columns: 1fr; } }
+  .capsule-type-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .ctab {
+    flex: 1; padding: 10px; border-radius: var(--radius); border: 1px solid var(--border2);
+    background: rgba(15,16,24,0.7); color: var(--muted); font-size: 13px; font-weight: 600;
+    cursor: pointer; text-align: center; transition: all 0.15s; user-select: none;
+  }
+  .ctab:hover { border-color: var(--accent); color: var(--text); }
+  .ctab.active { background: var(--accent-glow); border-color: var(--accent); color: var(--text); box-shadow: 0 0 16px -4px rgba(124,106,247,0.4); }
+
+  .minion-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .minion-card {
+    background: rgba(15,16,24,0.7); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 16px; position: relative; overflow: hidden;
+    transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s, border-color 0.2s;
+  }
+  .minion-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--minion-color,var(--accent)); box-shadow: 0 0 10px var(--minion-color,var(--accent)); }
+  .minion-card.secret { border-style: dashed; }
+  .minion-card:hover { transform: scale(1.04); border-color: var(--minion-color,var(--accent)); box-shadow: 0 0 22px -4px var(--minion-color,var(--accent)); }
+  .minion-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .minion-rarity { font-size: 11px; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .06em; }
+  .minion-chance-bar-wrap { margin-bottom: 8px; }
+  .minion-chance-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .minion-chance-bar { height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
+  .minion-chance-fill { height: 100%; background: var(--minion-color,var(--accent)); border-radius: 2px; box-shadow: 0 0 6px var(--minion-color,var(--accent)); }
+  .minion-stat { display: flex; justify-content: space-between; font-size: 12px; margin-top: 5px; }
+  .minion-stat-label { color: var(--muted); }
+  .minion-stat-val { font-family: var(--mono); font-size: 11px; background: rgba(255,255,255,0.05); padding: 2px 7px; border-radius: 4px; color: var(--text); border: 1px solid var(--border); }
+
+
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 13px; color: var(--text); }
+  .toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-track { position: absolute; inset: 0; background: var(--surface3); border-radius: 20px; cursor: pointer; transition: background 0.2s; border: 1px solid var(--border2); }
+  .toggle input:checked + .toggle-track { background: var(--accent); box-shadow: 0 0 8px rgba(124,106,247,0.5); }
+  .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; background: white; border-radius: 50%; transition: transform 0.2s; pointer-events: none; }
+  .toggle input:checked ~ .toggle-thumb { transform: translateX(16px); }
+
+  .cost-banner {
+    background: rgba(124,106,247,0.08); border: 1px solid rgba(124,106,247,0.25);
+    border-radius: var(--radius-lg); padding: 16px; text-align: center; margin-bottom: 16px;
+  }
+  .cost-val { font-size: 28px; font-weight: 700; font-family: var(--mono); color: var(--accent2); text-shadow: 0 0 16px rgba(168,153,255,0.4); }
+  .cost-label { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  @media (max-width: 900px) { .capsule-layout { grid-template-columns: 1fr; } }
+
+  /* ── Rune calculator ── */
+  .rune-layout { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .rune-layout { grid-template-columns: 1fr; } }
+  .rune-cat-tabs { display: block; margin-bottom: 16px; }
+  .rcat {
+    padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border2);
+    background: rgba(15,16,24,0.7); color: var(--muted); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; user-select: none;
+  }
+  .rcat:hover { border-color: var(--accent); color: var(--text); }
+  .rcat.active { background: var(--accent-glow); border-color: var(--accent); color: var(--text); }
+  .rune-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .rune-card {
+    background: rgba(15,16,24,0.7); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 14px 16px;
+    transition: transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s, border-color 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .rune-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background: var(--rune-col, var(--accent)); opacity:0.7; }
+  .rune-card:hover { transform: scale(1.03); border-color: var(--rune-col, var(--accent)); box-shadow: 0 0 18px -4px var(--rune-col, var(--accent)); }
+  .rune-card.noobinial { border: 2px solid #f5c542; }
+  .rune-card.noobinial::before { background: #f5c542; box-shadow: 0 0 10px #f5c542; }
+  .rune-card.noobinial:hover { border-color: #f5c542; box-shadow: 0 0 24px -4px #f5c542, 0 8px 32px rgba(0,0,0,0.5); }
+  #cosmicStatsPanel { display: none; }
+  #footballStatsPanel { display: none; }
+  .rune-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; display:flex; align-items:center; gap:5px; }
+  .rune-star { font-size: 12px; }
+  .rune-tag { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing:.06em; margin-bottom: 8px; }
+  .rune-card.noobinial .rune-tag { color: #f5c542; }
+  .rune-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-top: 5px; }
+  .rune-row-label { color: var(--muted); }
+  .rune-val { font-family: var(--mono); font-size: 11px; background: rgba(255,255,255,0.05); padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border); }
+  .rune-eta { font-family: var(--mono); font-size: 12px; font-weight: 700; }
+  .rune-eta { color: var(--text); }
+  .rune-eta.na { color: var(--muted); }
+  .erps-banner {
+    background: linear-gradient(135deg, rgba(124,106,247,0.15), rgba(124,106,247,0.05));
+    border: 1px solid var(--accent); border-radius: var(--radius-lg);
+    padding: 16px; text-align: center; margin-bottom: 14px;
+  }
+  .erps-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing:.08em; color: var(--text); margin-bottom: 4px; }
+  .rune-card-tabs { display:flex; gap:4px; margin-bottom:10px; }
+  .rcard-tab { flex:1; text-align:center; padding:4px 6px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; border:1px solid var(--border2); color:var(--muted); background:var(--surface3); transition:all 0.15s; user-select:none; }
+  .rcard-tab.active { background:var(--accent-glow); border-color:var(--accent); color:var(--text); }
+  .rcard-panel { display:none; }
+  .rcard-panel.active { display:block; }
+  .multiplier-list { display:flex; flex-direction:column; gap:3px; margin-top:6px; }
+  .multiplier-item { font-size:11px; color:var(--muted); font-family:var(--mono); background:rgba(255,255,255,0.03); padding:2px 6px; border-radius:4px; }
+  .erps-val { font-size: 36px; font-weight: 700; font-family: var(--mono); color: var(--text); letter-spacing: -0.04em; }
+
+  /* ── Factory page ── */
+  .factory-top { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+  .factory-input-card { background:rgba(15,16,24,0.7); border:1px solid var(--border2); border-radius:var(--radius-lg); padding:20px; text-align:center; }
+  .factory-input-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:10px; }
+  .factory-big-input { width:100%; background:rgba(10,11,18,0.8); border:1px solid var(--border2); border-radius:var(--radius); color:var(--text); font-family:var(--mono); font-size:22px; font-weight:700; padding:10px 16px; outline:none; text-align:center; transition:border-color 0.2s; }
+  .factory-big-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(124,106,247,0.2); }
+  .factory-big-val { font-size:36px; font-weight:700; font-family:var(--mono); color:var(--text); }
+  .tier-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; margin-bottom:24px; }
+  .tier-card { background:rgba(15,16,24,0.7); border:1px solid var(--border2); border-radius:var(--radius-lg); padding:18px; transition:border-color 0.2s; }
+  .tier-card:hover { border-color:rgba(124,106,247,0.4); }
+  .tier-title { font-size:13px; font-weight:700; margin-bottom:2px; }
+  .tier-value { font-size:11px; color:var(--muted); margin-bottom:14px; }
+  .tier-hw { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .tier-hw-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin-bottom:4px; }
+  .tier-hw input { background:rgba(10,11,18,0.8); border:1px solid var(--border2); border-radius:var(--radius); color:var(--text); font-family:var(--mono); font-size:15px; font-weight:600; padding:7px 10px; outline:none; text-align:center; width:100%; transition:border-color 0.2s; }
+  .tier-hw input:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(124,106,247,0.15); }
+  .tier-status { margin-top:10px; font-size:12px; font-weight:600; color:var(--muted); text-align:center; }
+  .tier-status.need { color:var(--text); }
+  .conv-table { background:rgba(15,16,24,0.7); border:1px solid var(--border2); border-radius:var(--radius-lg); padding:20px; margin-bottom:16px; }
+  .conv-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .conv-title { font-size:14px; font-weight:700; }
+  .conv-pct-btns { display:flex; gap:6px; }
+  .pct-btn { padding:4px 12px; border-radius:6px; border:1px solid var(--border2); background:var(--surface3); color:var(--muted); font-size:12px; font-weight:700; cursor:pointer; transition:all 0.15s; }
+  .pct-btn.active { border-color:var(--accent); background:var(--accent-glow); color:var(--text); }
+  .conv-cols { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; margin-bottom:8px; }
+  .conv-col-head { font-size:11px; font-weight:700; color:var(--muted); padding-bottom:8px; border-bottom:1px solid var(--border); }
+  .conv-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .conv-row:last-child { border-bottom:none; }
+  .conv-tier { color:var(--text); font-weight:600; }
+  .conv-cost { color:var(--muted); }
+  .conv-gain { color:var(--text); font-weight:600; }
+  .time-est-card { background:rgba(15,16,24,0.7); border:1px solid var(--border2); border-radius:var(--radius-lg); padding:20px; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .time-est-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:8px; }
+  .time-est-val { font-size:13px; color:var(--text); margin-bottom:4px; }
+  .time-date-val { font-size:22px; font-weight:700; font-family:var(--mono); margin-bottom:4px; }
+  .time-date-sub { font-size:13px; color:var(--muted); }
+
+  /* ── Rock tier colors ── */
+  .tier-stone{--rock-color:#9ca3af}.tier-coal{--rock-color:#6b7280}
+  .tier-copper{--rock-color:#f97316}.tier-iron{--rock-color:#94a3b8}
+  .tier-silver{--rock-color:#cbd5e1}.tier-gold{--rock-color:#f5c542}
+  .tier-platinum{--rock-color:#e2e8f0}.tier-titanium{--rock-color:#7dd3fc}
+  .tier-uranium{--rock-color:#86efac}.tier-cobalt{--rock-color:#60a5fa}
+  .tier-palladium{--rock-color:#a78bfa}.tier-aetherite{--rock-color:#c4b5fd}
+  .tier-ruby{--rock-color:#f87171}.tier-celestium{--rock-color:#38bdf8}
+  .tier-voidsteel{--rock-color:#818cf8}.tier-last{--rock-color:#f472b6}
+
+</style>
+</head>
+<body class="page-home">
+<canvas id="stars-canvas"></canvas>
+
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-title" onclick="goHome()" style="cursor:pointer;">Noob Incremental Calculators</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-label">Tools</div>
+    <div class="nav-item" onclick="showPage('rocks',this)"><span>All rocks</span></div>
+    <div class="nav-item" onclick="showPage('calc',this)"><span>Rock Time calculator</span></div>
+    <div class="nav-item" onclick="showPage('capsule',this)"><span>Capsule calculator</span></div>
+    <div class="nav-item" onclick="showPage('runes',this)"><span>Rune calculator</span></div>
+    <div class="nav-item" onclick="showPage('runelist',this)"><span>Rune max levels</span></div>
+    <div class="nav-item" onclick="showPage('factory',this)"><span>Factory calculator</span></div>
+    <div class="nav-item" onclick="showPage('prism',this)"><span>Prism calculator</span></div>
+  </nav>
+  <div style="padding:12px 10px;border-top:1px solid var(--border);">
+    <div class="nav-item" onclick="openSettings()"><span>⚙ Settings</span></div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="pageTitle">All rocks</div>
+
+    </div>
+    <div class="badge"><span class="dot"></span> Last content update: <span id="updateTimer" style="margin-left:4px;">calculating...</span></div>
+  </div>
+
+  <div class="content">
+
+    <!-- HOME PAGE -->
+    <div class="page active" id="page-home">
+      <div style="max-width:700px;margin:0 auto;padding:20px 0;">
+        <div style="text-align:center;margin-bottom:40px;">
+          <div style="font-size:42px;font-weight:800;letter-spacing:-0.03em;margin-bottom:8px;">Noob Incremental Calculators</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:32px;">
+          <a href="https://www.roblox.com/games/76911729991355/Noob-Incremental" target="_blank" style="text-decoration:none;">
+            <div style="background:rgba(15,16,24,0.7);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 20px;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 20px -4px var(--accent)'" onmouseout="this.style.borderColor='';this.style.boxShadow=''">
+              <div style="font-size:14px;font-weight:700;">Play the game</div>
+            </div>
+          </a>
+          <a href="https://trello.com/b/OZj7yj10/noob-incremental-trello" target="_blank" style="text-decoration:none;">
+            <div style="background:rgba(15,16,24,0.7);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 20px;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 20px -4px var(--accent)'" onmouseout="this.style.borderColor='';this.style.boxShadow=''">
+              <div style="font-size:14px;font-weight:700;">Trello board</div>
+            </div>
+          </a>
+        </div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:12px;">Tools</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div onclick="goPage('rocks')" style="background:rgba(15,16,24,0.7);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 20px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='scale(1.02)'" onmouseout="this.style.borderColor='';this.style.transform=''"><div style="font-size:14px;font-weight:700;">All rocks</div></div>
+          <div onclick="goPage('calc')" style="background:rgba(15,16,24,0.7);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 20px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='scale(1.02)'" onmouseout="this.style.borderColor='';this.style.transform=''"><div style="font-size:14px;font-weight:700;">Rock Time calculator</div></div>
+          <div onclick="goPage('capsule')" style="background:rgba(15,16,24,0.7);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 20px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='scale(1.02)'" onmouseout="this.style.borderColor='';this.style.transform=''"><div style="font-size:14px;font-weight:700;">Capsule calculator</div></div>
+          <div onclick="goPage('runes')" style="background:rgba(15,16,24,0.7);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 20px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='scale(1.02)'" onmouseout="this.style.borderColor='';this.style.transform=''"><div style="font-size:14px;font-weight:700;">Rune calculator</div></div>
+          <div onclick="goPage('runelist')" style="background:rgba(15,16,24,0.7);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 20px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='scale(1.02)'" onmouseout="this.style.borderColor='';this.style.transform=''"><div style="font-size:14px;font-weight:700;">Rune max levels</div></div>
+          <div onclick="goPage('factory')" style="background:rgba(15,16,24,0.7);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 20px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='scale(1.02)'" onmouseout="this.style.borderColor='';this.style.transform=''"><div style="font-size:14px;font-weight:700;">Factory calculator</div></div>
+          <div onclick="goPage('prism')" style="background:rgba(15,16,24,0.7);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 20px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='scale(1.02)'" onmouseout="this.style.borderColor='';this.style.transform=''"><div style="font-size:14px;font-weight:700;">Prism calculator</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROCKS PAGE -->
+    <div class="page" id="page-rocks">
+      <div class="rocks-grid" id="rocksGrid"></div>
+    </div>
+
+    <!-- ROCK TIME CALCULATOR PAGE -->
+    <div class="page" id="page-calc">
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">Selected rock</div><div class="stat-value" id="s-rock" style="font-size:15px;margin-top:4px">—</div><div class="stat-sub">choose below</div></div>
+        <div class="stat-card"><div class="stat-label">Rock HP</div><div class="stat-value" id="s-hp">—</div><div class="stat-sub">total health</div></div>
+        <div class="stat-card"><div class="stat-label">DPS</div><div class="stat-value" id="s-dps">—</div><div class="stat-sub">damage/sec</div></div>
+        <div class="stat-card"><div class="stat-label">Total hits</div><div class="stat-value" id="s-hits">—</div><div class="stat-sub">to destroy</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">Inputs</div>
+          <div class="input-group"><label class="input-label">Select rock</label><select id="calcRock" oninput="calcMine()"></select></div>
+          <div class="input-group"><label class="input-label">Damage per swing</label><input type="text" id="calcDmg" placeholder="e.g. 180Oc, 2No" oninput="calcMine()"><div class="hint">Your actual in-game damage per hit</div></div>
+          <div class="input-group"><label class="input-label">Hits per second</label><input type="number" id="calcHps" value="2" min="1" max="99" step="0.1" oninput="calcMine()"></div>
+          <hr class="section-divider">
+          <div class="section-label">Friends</div>
+          <div id="friendRows"></div>
+          <button class="add-friend-btn" onclick="addFriend()">+ Add friend</button>
+        </div>
+        <div class="card"><div class="card-title">Results</div><div id="calcResults"><div class="empty">Enter your damage on the left to see results</div></div></div>
+      </div>
+    </div>
+
+    <!-- CAPSULE PAGE -->
+    <div class="page" id="page-capsule">
+      <div class="capsule-layout">
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div class="capsule-type-tabs" style="margin-bottom:0">
+            <div class="ctab active" onclick="setCapsuleType('classic',this)">Classic Capsule<br><small style="font-weight:400;font-size:11px;color:var(--muted)">1B gems/roll</small></div>
+            <div class="ctab" onclick="setCapsuleType('super',this)">Super Capsule<br><small style="font-weight:400;font-size:11px;color:var(--muted)">7.5B gems/roll</small></div>
+            <div class="ctab" onclick="setCapsuleType('football',this)">Football Capsule<br><small style="font-weight:400;font-size:11px;color:var(--muted)">250DDe goals/roll</small></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Your stats</div>
+            <div id="capsuleCurrencyNote" style="font-size:12px;color:var(--muted);margin-bottom:12px;display:none;">Football Capsule costs <b>Goals</b>, not Gems</div>
+            <div class="input-group"><label class="input-label">Capsule Luck (x multiplier)</label><input type="number" id="capLuck" value="1" min="1" step="0.01" oninput="calcCapsule()"><div class="hint">Check the Rare Minions section in there Discord to find your luck multiplier</div></div>
+            <div class="input-group"><label class="input-label">Capsule Bulk (opens per roll)</label><input type="number" id="capBulk" value="3" min="1" step="1" oninput="calcCapsule()"></div>
+            <div class="input-group" style="margin-bottom:0"><label class="input-label">Gems available</label><input type="text" id="capGems" value="" placeholder="" oninput="calcCapsule()"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Stats</div>
+            <div class="minion-stat" style="margin-bottom:8px"><span class="minion-stat-label">Luck multiplier</span><span class="minion-stat-val" id="effLuck">x1.00</span></div>
+            <div class="minion-stat" style="margin-bottom:8px"><span class="minion-stat-label">Bulk per roll</span><span class="minion-stat-val" id="effBulk">3</span></div>
+            <div class="minion-stat" style="margin-bottom:8px"><span class="minion-stat-label">Cost per roll</span><span class="minion-stat-val" id="effCost">1.00B</span></div>
+            <div class="minion-stat" style="margin-bottom:8px"><span class="minion-stat-label">Can open for</span><span class="minion-stat-val" id="effOpenTime">—</span></div>
+            <div class="minion-stat"><span class="minion-stat-label">Total rolls</span><span class="minion-stat-val" id="effRolls">—</span></div>
+          </div>
+        </div>
+        <div><div class="minion-grid" id="minionGrid"></div></div>
+      </div>
+    </div>
+
+    <!-- RUNE CALCULATOR PAGE -->
+    <div class="page" id="page-runes">
+      <div class="rune-layout">
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div class="erps-banner">
+            <div class="erps-label">Effective RPS</div>
+            <div class="erps-val" id="runeErps">0/s</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Your stats</div>
+            <div class="input-group"><label class="input-label">Rune Luck (x)</label><input type="text" id="runeLuck" value="" placeholder="e.g. 33.29Sx" oninput="calcRunePage()"></div>
+            <div class="input-group"><label class="input-label">Rune Bulk</label><input type="text" id="runeBulk" value="" placeholder="e.g. 45.59SxDe" oninput="calcRunePage()"></div>
+            <div class="input-group" style="margin-bottom:0"><label class="input-label">Cooldown Speed (sec)</label><input type="number" id="runeCooldown" value="0.05" min="0.001" step="0.001" oninput="calcRunePage()"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Potions (2x)</div>
+            <div class="toggle-row"><span class="toggle-label">Rune Bulk 2x</span><label class="toggle"><input type="checkbox" id="potBulk" onchange="calcRunePage()"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div class="toggle-row"><span class="toggle-label">Rune Luck 2x</span><label class="toggle"><input type="checkbox" id="potLuck" onchange="calcRunePage()"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div class="toggle-row"><span class="toggle-label">Rune Speed 2x</span><label class="toggle"><input type="checkbox" id="potSpeed" onchange="calcRunePage()"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Friend boost</div>
+            <div class="toggle-row"><span class="toggle-label">Enable boost</span><label class="toggle"><input type="checkbox" id="friendBoost" onchange="calcRunePage()"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div class="input-group" style="margin-top:12px;margin-bottom:0"><label class="input-label">Amount of friends (max 5)</label><input type="number" id="friendCount" value="1" min="0" max="5" step="1" oninput="calcRunePage()"></div>
+          </div>
+          <div class="card" style="font-size:12px;color:var(--muted);line-height:1.6;">
+            <div class="card-title">Note</div>
+            Noobinial runes are <b>not boosted by luck</b> — only Bulk affects your rate.
+          </div>
+        </div>
+        <!-- Football Rune stats panel (hidden by default) -->
+        <div id="footballStatsPanel" style="flex-direction:column;gap:14px;">
+          <div class="erps-banner">
+            <div class="erps-label">Effective Football RPS</div>
+            <div class="erps-val" id="footballRuneErps">0/s</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Football rune stats</div>
+            <div class="input-group"><label class="input-label">Football Rune Luck (x)</label><input type="text" id="footballRuneLuck" value="" placeholder="e.g. 27.6Qd" oninput="calcFootballRune()"></div>
+            <div class="input-group"><label class="input-label">Football Rune Bulk</label><input type="text" id="footballRuneBulk" value="" placeholder="e.g. 282Qd" oninput="calcFootballRune()"></div>
+            <div class="input-group" style="margin-bottom:0"><label class="input-label">Rune Speed (sec)</label><input type="number" id="footballRuneSpeed" value="0.05" min="0.001" step="0.001" oninput="calcFootballRune()"></div>
+          </div>
+        </div>
+        <!-- Cosmic Prism stats panel (hidden by default) -->
+        <div id="cosmicStatsPanel" style="flex-direction:column;gap:14px;">
+          <div class="erps-banner">
+            <div class="erps-label">Effective Prism RPS</div>
+            <div class="erps-val" id="prismRuneErps">0/s</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Prism rune stats</div>
+            <div class="input-group"><label class="input-label">Prism Rune Luck (x)</label><input type="text" id="prismRuneLuck" value="" placeholder="e.g. x49.1M" oninput="calcPrismRune()"></div>
+            <div class="input-group"><label class="input-label">Prism Rune Bulk</label><input type="text" id="prismRuneBulk" value="" placeholder="e.g. 1" oninput="calcPrismRune()"></div>
+            <div class="input-group" style="margin-bottom:0"><label class="input-label">Prism Rune Speed (sec)</label><input type="number" id="prismRuneSpeed" value="0.05" min="0.001" step="0.001" oninput="calcPrismRune()"></div>
+          </div>
+        </div>
+        <div>
+          <div class="rune-cat-tabs" id="runeCatTabs"></div>
+          <div class="rune-grid" id="runeCardGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RUNE MAX LEVELS PAGE -->
+    <div class="page" id="page-runelist">
+      <div class="rune-cat-tabs" id="runelistTabs"></div>
+      <div class="rune-grid" id="runelistGrid"></div>
+    </div>
+
+    <!-- FACTORY PAGE -->
+    <div class="page" id="page-factory">
+      <div class="factory-top">
+        <div class="factory-input-card">
+          <div class="factory-input-label">Points / sec (rate)</div>
+          <input class="factory-big-input" type="text" id="factoryPPS" placeholder="0" oninput="calcFactory()">
+        </div>
+        <div class="factory-input-card">
+          <div class="factory-input-label">Required T1 to reach all wanted</div>
+          <div class="factory-big-val" id="factoryRequiredT1">0</div>
+        </div>
+      </div>
+      <div class="tier-grid" id="tierGrid"></div>
+      <div class="conv-table">
+        <div class="conv-header">
+          <div class="conv-title">Conversion rates</div>
+          <div class="conv-pct-btns">
+            <div class="pct-btn active" onclick="setConvPct(10,this)">10%</div>
+            <div class="pct-btn" onclick="setConvPct(25,this)">25%</div>
+            <div class="pct-btn" onclick="setConvPct(50,this)">50%</div>
+          </div>
+        </div>
+        <div class="conv-cols"><div class="conv-col-head">Tier</div><div class="conv-col-head">Cost (source tier)</div><div class="conv-col-head">You gain</div></div>
+        <div id="convRows"></div>
+      </div>
+      <div class="time-est-card">
+        <div><div class="time-est-label">Time estimation</div><div class="time-est-val" id="timeDays">Days: 0</div><div class="time-est-val" id="timeHours">Hours: 0</div></div>
+        <div><div class="time-est-label">Completion date</div><div class="time-date-val" id="timeHMS">00:00:00</div><div class="time-date-sub" id="timeDate">--/--/--</div></div>
+      </div>
+    </div>
+
+    <!-- PRISM CALCULATOR PAGE -->
+    <div class="page" id="page-prism">
+      <div style="margin-bottom:20px;">
+        <div class="card">
+          <div class="card-title">Your prism rate</div>
+          <div class="input-group"><label class="input-label">Prisms per cycle</label><input type="text" id="prismAmt" placeholder="e.g. 7.8B" oninput="calcPrism()"></div>
+          <div class="input-group" style="margin-bottom:0"><label class="input-label">Cycle time (seconds)</label><input type="number" id="prismCycle" value="18" min="0.1" step="0.1" oninput="calcPrism()"></div>
+        </div>
+        
+      </div>
+      <div class="card"><div class="card-title">Earnings over time</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:4px;" id="prismTimeGrid"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+  <div style="background:#0f1018;border:1px solid var(--border2);border-radius:var(--radius-lg);padding:28px;width:420px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+      <div style="font-size:16px;font-weight:700;">Settings</div>
+      <div onclick="closeSettings()" style="cursor:pointer;color:var(--muted);font-size:20px;line-height:1;">&times;</div>
+    </div>
+
+    <div style="margin-bottom:8px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-bottom:10px;">Data</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button onclick="exportData()" style="width:100%;padding:10px;background:var(--accent-glow);border:1px solid var(--accent);border-radius:var(--radius);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;">Export data (download JSON)</button>
+        <label style="width:100%;padding:10px;background:rgba(255,255,255,0.04);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;text-align:center;">
+          Import data (load JSON)
+          <input type="file" accept=".json" id="importFile" style="display:none;" onchange="importData(event)">
+        </label>
+        <button onclick="clearData()" style="width:100%;padding:10px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.3);border-radius:var(--radius);color:#f87171;font-size:13px;font-weight:600;cursor:pointer;">Clear all saved data</button>
+      </div>
+    </div>
+    <div id="settingsMsg" style="margin-top:12px;font-size:12px;color:var(--muted);text-align:center;"></div>
+  </div>
+</div>
+
+<script>
+
+/* ══ ROCK DATA ══ */
+const ROCKS=[
+  {name:'Stone',      hp:10,      tier:'stone',    drops:[{n:'Coal',p:'100%'}]},
+  {name:'Coal',       hp:150,     tier:'coal',     drops:[{n:'Coal',p:'75%'},{n:'Copper',p:'25%'}]},
+  {name:'Copper',     hp:750,     tier:'copper',   drops:[{n:'Copper',p:'75%'},{n:'Iron',p:'25%'}]},
+  {name:'Iron',       hp:7500,    tier:'iron',     drops:[{n:'Iron',p:'75%'},{n:'Silver',p:'25%'}]},
+  {name:'Silver',     hp:150000,  tier:'silver',   drops:[{n:'Silver',p:'75%'},{n:'Gold',p:'25%'},{n:'Normal Dice',p:'3%'}]},
+  {name:'Gold',       hp:15e6,    tier:'gold',     drops:[{n:'Gold',p:'75%'},{n:'Platinum',p:'25%'},{n:'Normal Dice',p:'3%'}]},
+  {name:'Platinum',   hp:5e9,     tier:'platinum', drops:[{n:'Platinum',p:'75%'},{n:'Titanium',p:'25%'},{n:'Normal Dice',p:'4%'}]},
+  {name:'Titanium',   hp:200e9,   tier:'titanium', drops:[{n:'Titanium',p:'75%'},{n:'Emerald',p:'25%'},{n:'Normal Dice',p:'4%'}]},
+  {name:'Uranium',    hp:85e12,   tier:'uranium',  drops:[{n:'Emerald',p:'55%'},{n:'Diamond',p:'25%'},{n:'Opal',p:'15%'},{n:'Normal Dice',p:'5%'}]},
+  {name:'Cobalt',     hp:3e15,    tier:'cobalt',   drops:[{n:'Opal',p:'55%'},{n:'Jade',p:'25%'},{n:'Amber',p:'15%'},{n:'Normal Dice',p:'6%'}]},
+  {name:'Palladium',  hp:500e15,  tier:'palladium',drops:[{n:'Amber',p:'75%'},{n:'Topaz',p:'25%'},{n:'Normal Dice',p:'7%'}]},
+  {name:'Aetherite',  hp:10e18,   tier:'aetherite',drops:[{n:'Quartz',p:'75%'},{n:'Sapphire',p:'25%'},{n:'Normal Dice',p:'10%'}]},
+  {name:'Ruby',       hp:99.9e21, tier:'ruby',     drops:[{n:'Ruby',p:'55%'},{n:'Amethyst',p:'25%'},{n:'Quartz',p:'15%'},{n:'Normal Dice',p:'8%'}]},
+  {name:'Celestium',  hp:6e24,    tier:'celestium',drops:[{n:'Sapphire',p:'53%'},{n:'Uranium',p:'20%'},{n:'Crystal',p:'15%'},{n:'Normal Dice',p:'12%'}]},
+  {name:'Voidsteel',  hp:750e24,  tier:'voidsteel',drops:[{n:'Crystal',p:'65%'},{n:'Obsidian',p:'20%'},{n:'Normal Dice',p:'15%'}]},
+  {name:'Infinity',   hp:350e30,  tier:'last',     drops:[{n:'Obsidian',p:'100%'},{n:'Normal Dice',p:'2%'},{n:'Enchant Token',p:'0.5%'},{n:'Golden Dice',p:'???'},{n:'Wizard Staff',p:'???'}]},
+];
+
+/* ══ NUMBER HELPERS ══ */
+const SFXMAP=[
+  ['novg',1e90],['ocvg',1e87],['spvg',1e84],['sxvg',1e81],['qivg',1e78],['qavg',1e75],['tvg',1e72],['dvg',1e69],['uvg',1e66],['vg',1e63],
+  ['node',1e60],['ocde',1e57],['spde',1e54],['sxde',1e51],['qide',1e48],['qade',1e45],['tde',1e42],['dde',1e39],['ude',1e36],
+  ['dc',1e33],['no',1e30],['oc',1e27],['sp',1e24],['qn',1e21],['sx',1e18],['qd',1e15],['t',1e12],['b',1e9],['m',1e6],['k',1e3]
+];
+const FMT_TIERS=[
+  [1e90,'NoVg'],[1e87,'OcVg'],[1e84,'SpVg'],[1e81,'SxVg'],[1e78,'QiVg'],[1e75,'QaVg'],[1e72,'TVg'],[1e69,'DVg'],[1e66,'UVg'],[1e63,'Vg'],
+  [1e60,'NoDe'],[1e57,'OcDe'],[1e54,'SpDe'],[1e51,'SxDe'],[1e48,'QiDe'],[1e45,'QaDe'],[1e42,'TDe'],[1e39,'DDe'],[1e36,'UDe'],
+  [1e33,'Dc'],[1e30,'No'],[1e27,'Oc'],[1e24,'Sp'],[1e21,'Qn'],[1e18,'Sx'],[1e15,'Qd'],[1e12,'T'],[1e9,'B'],[1e6,'M'],[1e3,'k']
+];
+function parseNum(s){
+  if(!s)return NaN;
+  s=s.trim().toLowerCase();
+  for(const[k,v] of SFXMAP){if(s.endsWith(k)){const n=parseFloat(s.slice(0,-k.length));return isNaN(n)?NaN:n*v;}}
+  return parseFloat(s);
+}
+function fmtNum(n){
+  if(n===undefined||n===null||isNaN(n))return'—';
+  const abs=Math.abs(n);
+  for(const[v,label] of FMT_TIERS){if(abs>=v)return(n/v).toFixed(2)+label;}
+  return n.toFixed(0);
+}
+function fmtTime(sec){
+  if(isNaN(sec)||!isFinite(sec))return'—';
+  if(sec<1)return'<1s';
+  if(sec<60)return sec.toFixed(1)+'s';
+  if(sec<3600){const m=Math.floor(sec/60),s=Math.round(sec%60);return m+'m '+s+'s';}
+  if(sec<86400){const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h+'h '+m+'m';}
+  const d=Math.floor(sec/86400),h=Math.floor((sec%86400)/3600);return d+'d '+h+'h';
+}
+
+/* ══ BUILD ROCKS GRID ══ */
+const grid=document.getElementById('rocksGrid');
+const maxHP=ROCKS.reduce((a,r)=>Math.max(a,r.hp),0);
+ROCKS.forEach((r,i)=>{
+  const pct=100;
+  const card=document.createElement('div');
+  card.className='rock-card tier-'+r.tier;
+  card.innerHTML=`<div class="rock-name">${r.name}</div>
+    <div class="rock-hp-label"><span>HP</span><span>${fmtNum(r.hp)}</span></div>
+    <div class="rock-hp-bar"><div class="rock-hp-fill" style="width:${pct}%"></div></div>
+    <div class="rock-drops">${r.drops.map(d=>`<div class="rock-drop"><span class="rock-drop-name">${d.n}</span></div>`).join('')}</div>`;
+  card.onclick=()=>goCalc(i);
+  grid.appendChild(card);
+});
+
+/* ══ CALCULATOR ══ */
+const sel=document.getElementById('calcRock');
+ROCKS.forEach((r,i)=>{
+  const o=document.createElement('option');
+  o.value=i; o.textContent=r.name+' — '+fmtNum(r.hp)+' HP';
+  sel.appendChild(o);
+});
+function goCalc(idx){
+  showPage('calc',document.querySelectorAll('.nav-item')[1]);
+  document.getElementById('calcRock').value=idx;
+  calcMine();
+}
+let friendCount=0;
+function addFriend(){
+  const id=++friendCount;
+  const row=document.createElement('div');
+  row.className='friend-row'; row.id='friend-'+id;
+  row.innerHTML=`
+    <div class="input-group">
+      <label class="input-label">Friend ${id} dmg/hit</label>
+      <input type="text" id="fdmg-${id}" placeholder="e.g. 100Oc" oninput="calcMine()">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Hits/sec</label>
+      <input type="number" id="fhps-${id}" value="2" min="1" max="99" step="1" oninput="calcMine()">
+    </div>
+    <button class="remove-btn" onclick="removeFriend(${id})" title="Remove">✕</button>
+  `;
+  document.getElementById('friendRows').appendChild(row);
+  calcMine();
+}
+function removeFriend(id){
+  const el=document.getElementById('friend-'+id);
+  if(el) el.remove();
+  calcMine();
+}
+function getFriendDPS(){
+  let total=0;
+  document.querySelectorAll('.friend-row').forEach(row=>{
+    const id=row.id.split('-')[1];
+    const dmg=parseNum((document.getElementById('fdmg-'+id)||{}).value||'');
+    const hps=parseFloat((document.getElementById('fhps-'+id)||{}).value)||2;
+    if(dmg&&!isNaN(dmg)&&dmg>0) total+=dmg*hps;
+  });
+  return total;
+}
+function calcMine(){
+  const rock=ROCKS[+document.getElementById('calcRock').value];
+  const baseDmg=parseNum(document.getElementById('calcDmg').value);
+  const dmg=baseDmg;
+  const hps=parseFloat(document.getElementById('calcHps').value)||2;
+  document.getElementById('s-rock').textContent=rock.name;
+  document.getElementById('s-hp').textContent=fmtNum(rock.hp);
+  const res=document.getElementById('calcResults');
+  if(!dmg||isNaN(dmg)||dmg<=0){
+    document.getElementById('s-dps').textContent='—';
+    document.getElementById('s-hits').textContent='—';
+    res.innerHTML='<div class="empty">Enter your damage on the left to see results</div>';return;
+  }
+  const myDPS=dmg*hps;
+  const friendDPS=getFriendDPS();
+  const totalDPS=myDPS+friendDPS;
+  const secs=rock.hp/totalDPS;
+  const hits=Math.ceil(rock.hp/dmg);
+  document.getElementById('s-dps').textContent=fmtNum(totalDPS);
+  document.getElementById('s-hits').textContent=hits.toLocaleString();
+  const friendLine=friendDPS>0?`<div class="result-mini"><div class="result-mini-val">${fmtNum(myDPS)}</div><div class="result-mini-label">Your DPS</div></div><div class="result-mini"><div class="result-mini-val">${fmtNum(friendDPS)}</div><div class="result-mini-label">Friends DPS</div></div>`:`<div class="result-mini"><div class="result-mini-val">${fmtNum(dmg)}</div><div class="result-mini-label">Dmg/hit</div></div><div class="result-mini"><div class="result-mini-val">${hps}</div><div class="result-mini-label">Hits/sec</div></div>`;
+  res.innerHTML=`<div class="result-highlight">
+    <div class="result-big">${fmtTime(secs)}</div>
+    <div class="result-label-sm">to mine ${rock.name}${friendDPS>0?' (with friends)':''}</div>
+  </div>
+  <div class="result-row">
+    ${friendLine}
+    <div class="result-mini"><div class="result-mini-val">${fmtNum(totalDPS)}</div><div class="result-mini-label">Total DPS</div></div>
+    <div class="result-mini"><div class="result-mini-val">${hits.toLocaleString()}</div><div class="result-mini-label">Your hits</div></div>
+  </div>`;
+}
+
+
+
+/* ══ PAGE SWITCHING ══ */
+const pageMeta={
+  home:{title:'Noob Incremental Calculators',sub:'Your all-in-one tool for NI'},
+  rocks:{title:'All rocks',sub:'Browse every rock and its drops'},
+  calc:{title:'Rock Time calculator',sub:'How long to mine a rock at your damage'},
+  capsule:{title:'Capsule calculator',sub:'Drop chances, cost per roll and expected pulls'},
+  runes:{title:'Rune calculator',sub:'ETA and viability for every rune based on your RPS'},
+  runelist:{title:'Rune max levels',sub:'Max level caps and multipliers for every rune'},
+  factory:{title:'Factory calculator',sub:'Points per second and tier conversion planner'},
+  prism:{title:'Prism calculator',sub:'How many prisms you earn over time'},
+  settings:{title:'Settings',sub:'Theme and data options'},
+  factory:{title:'Factory calculator',sub:'Points per second and tier conversion planner'},
+  prism:{title:'Prism calculator',sub:'How many prisms you earn over time'},
+  settings:{title:'Settings',sub:'Theme and data options'},
+};
+function goHome(){ showPage("home",null); }
+function goPage(id){ showPage(id,null); }
+
+function showPage(id,navEl){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  // Auto-find nav item if not passed
+  if(!navEl){
+    document.querySelectorAll('.nav-item').forEach(n=>{
+      if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+id+"'")) navEl=n;
+    });
+  }
+  if(navEl) navEl.classList.add('active');
+  const m=pageMeta[id];
+  document.getElementById('pageTitle').textContent=m.title;
+
+  document.body.className = id==='home' ? 'page-home' : '';
+  if(id==='home') document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+}
+
+/* ══ TIMER ══ */
+const updateBase=1782907200000;
+function tickTimer(){
+  const e=Math.floor((Date.now()-updateBase)/1000);
+  const d=Math.floor(e/86400),h=Math.floor((e%86400)/3600),m=Math.floor((e%3600)/60),s=e%60;
+  document.getElementById('updateTimer').textContent=d+'d '+h+'h '+m+'m '+s+'s ago';
+}
+tickTimer(); setInterval(tickTimer,1000);
+
+/* ══ CAPSULE DATA ══ */
+const CAPSULE_TYPES = {
+  football: {
+    cost: 250e39,
+    label: 'Football Capsule', currency: 'goals',
+    minions: [
+      {name:'David',      rarity:'Common',    baseChance:72.09, allLuckChance:72.09, color:'#9ca3af'},
+      {name:'Neymar',     rarity:'Uncommon',  baseChance:14.9,  allLuckChance:14.9,  color:'#4ade80'},
+      {name:'Ronaldinho', rarity:'Rare',      baseChance:2.52,  allLuckChance:2.52,  color:'#60a5fa'},
+      {name:'Pele',       rarity:'Epic',      baseChance:9.47,  allLuckChance:9.47,  color:'#a78bfa'},
+      {name:'Maradona',   rarity:'Legendary', baseChance:0.79,  allLuckChance:0.79,  color:'#f5c542'},
+      {name:'Messi',      rarity:'Mythic',    baseChance:0.26,  allLuckChance:0.26,  color:'#f472b6'},
+      {name:'Ronaldo',    rarity:'Secret',    baseChance:0.001, allLuckChance:0.001, color:'#dc2626'},
+    ]
+  },
+  classic: {
+    cost: 1e9,
+    label: 'Classic Capsule',
+    minions: [
+      {name:'Poor',      rarity:'Common',    baseChance:64,    allLuckChance:45.5,  color:'#9ca3af'},
+      {name:'Zombie',    rarity:'Uncommon',  baseChance:26.9,  allLuckChance:19.1,  color:'#4ade80'},
+      {name:'Baddie',    rarity:'Rare',      baseChance:7.16,  allLuckChance:5.09,  color:'#60a5fa'},
+      {name:'Rich',      rarity:'Epic',      baseChance:1.57,  allLuckChance:1.12,  color:'#a78bfa'},
+      {name:'Magician',  rarity:'Legendary', baseChance:0.4,   allLuckChance:28.4,  color:'#f5c542'},
+      {name:'King',      rarity:'Mythic',    baseChance:0.01,  allLuckChance:0.67,  color:'#f472b6'},
+      {name:'Galaxy',    rarity:'Secret',    baseChance:0.001, allLuckChance:0.001, color:'#818cf8'},
+    ]
+  },
+  super: {
+    cost: 7.5e9,
+    label: 'Super Capsule',
+    minions: [
+      {name:'Snowman',     rarity:'Common',    baseChance:64,    allLuckChance:45.5,  color:'#9ca3af'},
+      {name:'Miner',       rarity:'Uncommon',  baseChance:26.9,  allLuckChance:19.1,  color:'#4ade80'},
+      {name:'Manager',     rarity:'Rare',      baseChance:7.16,  allLuckChance:5.09,  color:'#60a5fa'},
+      {name:'Gingerbread', rarity:'Epic',      baseChance:1.57,  allLuckChance:1.12,  color:'#a78bfa'},
+      {name:'Golem',       rarity:'Legendary', baseChance:0.4,   allLuckChance:28.4,  color:'#f5c542'},
+      {name:'Dragon',      rarity:'Mythic',    baseChance:0.01,  allLuckChance:0.67,  color:'#f472b6'},
+      {name:'Vampire',   rarity:'Secret',    baseChance:0.0004,allLuckChance:0.0004,color:'#dc2626'},
+    ]
+  }
+};
+
+let activeCapsuleType = 'classic';
+function setCapsuleType(type, el){
+  const note = document.getElementById('capsuleCurrencyNote');
+  if(note) note.style.display = type==='football' ? 'block' : 'none';
+  const lbl = document.getElementById('capGemsLabel');
+  if(lbl) lbl.textContent = type==='football' ? 'Goals available' : 'Gems available';
+  activeCapsuleType = type;
+  document.querySelectorAll('.ctab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  calcCapsule();
+}
+
+function getCapEffLuck(){
+  return Math.max(1, parseFloat(document.getElementById('capLuck').value)||1);
+}
+function getCapEffBulk(){
+  return Math.max(1, Math.round(parseFloat(document.getElementById('capBulk').value)||3));
+}
+
+function calcCapsule(){
+  const cap = CAPSULE_TYPES[activeCapsuleType];
+  const luck = getCapEffLuck();
+  const bulk = getCapEffBulk();
+  const gems = parseNum(document.getElementById('capGems').value);
+  const costPerRoll = cap.cost;
+  const hasGems = gems && !isNaN(gems) && gems > 0;
+  const rolls = hasGems ? Math.floor(gems / costPerRoll) : 0;
+  const totalOpens = rolls * bulk;
+  // How long can you open: assume ~1 roll per second (idle game pace display)
+  // Actually show in total rolls and gem burn time as a stat
+
+  document.getElementById('effLuck').textContent = 'x'+luck.toFixed(2);
+  document.getElementById('effBulk').textContent = bulk;
+  const currency = cap.currency||'gems'; document.getElementById('effCost').textContent = fmtNum(costPerRoll)+' '+currency+'/roll';
+  if(hasGems){
+    const secs=rolls*0.05;
+    let timeStr;
+    if(secs<60) timeStr=secs.toFixed(1)+'s';
+    else if(secs<3600) timeStr=Math.floor(secs/60)+'m '+Math.round(secs%60)+'s';
+    else if(secs<86400) timeStr=Math.floor(secs/3600)+'h '+Math.floor((secs%3600)/60)+'m';
+    else timeStr=Math.floor(secs/86400)+'d '+Math.floor((secs%86400)/3600)+'h';
+    document.getElementById('effOpenTime').textContent = timeStr;
+    document.getElementById('effRolls').textContent = rolls.toLocaleString();
+  } else {
+    document.getElementById('effOpenTime').textContent = '—';
+    document.getElementById('effRolls').textContent = '—';
+  }
+
+  const grid = document.getElementById('minionGrid');
+  grid.innerHTML = '';
+
+  // gamepass+grenade luck combo for "with boosts" column
+  cap.minions.forEach(m => {
+    // effective chance with user luck: scale between base and allLuck proportionally
+    // allLuckChance = chance at full luck mults (gamepass x1.5 * grenade x1.25 = x1.875)
+    // We use: effChance = baseChance adjusted so rarer gets boosted more
+    // Simple approach: use allLuckChance when all boosts on, base otherwise, show both
+    const effChance = m.baseChance;
+
+    const expectedPerOpen = effChance / 100;
+    const expectedPerRoll = expectedPerOpen * bulk;
+    const expectedTotal = totalOpens > 0 ? expectedPerOpen * totalOpens : null;
+    const rollsFor1 = bulk > 0 ? (100 / effChance) / bulk : null;
+
+    const card = document.createElement('div');
+    card.className = 'minion-card' + (m.rarity==='Secret'?' secret':'');
+    card.style.setProperty('--minion-color', m.color);
+
+    card.innerHTML = `
+      <div class="minion-name">${m.name}</div>
+      <div class="minion-rarity">${m.rarity}</div>
+      <div class="minion-chance-bar-wrap" style="margin-top:8px">
+        <div class="minion-chance-label"><span>Chance</span><span>${m.baseChance}%</span></div>
+        <div class="minion-chance-bar"><div class="minion-chance-fill" style="width:${Math.min(100,m.baseChance)}%"></div></div>
+      </div>
+      <div style="border-top:1px solid var(--border);margin:10px 0"></div>
+      ${m.rarity==='Secret' ? `<div class="minion-stat"><span class="minion-stat-label">Total opens needed</span><span class="minion-stat-val">${Math.round(100/effChance).toLocaleString()}</span></div>
+      <div class="minion-stat"><span class="minion-stat-label">Gems for 1</span><span class="minion-stat-val">${fmtNum(Math.ceil((100/effChance)/bulk)*cap.cost)}</span></div>` : ''}
+
+    `;
+    grid.appendChild(card);
+  });
+}
+
+calcCapsule();
+
+/* ══ RUNE DATA ══ */
+const RUNE_CATS = [
+  { name:'Basic Rune', realm:'Realm 1', color:'#7c6af7', runes:[
+    {name:'Rookie',       noob:false, chance:1.25,   maxLvl:500, multipliers:['x101 Oof','x51 Rebirth']},
+    {name:'Learner',      noob:false, chance:6.67,   maxLvl:400, multipliers:['x61 Rebirth','x1.5 Rune Luck']},
+    {name:'Trained',      noob:false, chance:33.29,  maxLvl:300, multipliers:['x151 Oof','x61 Rebirth','x114 Fire','x46 Wheat','+5 Rune Bulk']},
+    {name:'Skilled',      noob:false, chance:200,    maxLvl:200, multipliers:['x501 Oof','x51 Fire','x1.75 Rune Luck']},
+    {name:'Expert',       noob:false, chance:50e3,   maxLvl:150, multipliers:['x751 Oof','x114 Fire','x116 Fire','x1.5 Rune Speed','x3 Rune Bulk']},
+    {name:'Master',       noob:false, chance:1e6,    maxLvl:115, multipliers:['x1.73k Oof','x576 Rebirth','x116 Fire','x24 Blaze','x1.5 Rune Speed','+10 Rune Bulk']},
+    {name:'Grandmaster',  noob:false, chance:40e6,   maxLvl:95,  multipliers:['x4.75k Oof','x72.3 Blaze','x5.63k Rebirth','x251 Blaze','x21 Rune Bulk','x4 Rune Luck']},
+    {name:'Celestial',    noob:false, chance:625e9,  maxLvl:75,  multipliers:['x56.3k Oof','x1.12k Fire','x5.63k Rebirth','x251 Blaze','x21 Rune Bulk','x6 Rune Luck']},
+    {name:'Immortal',     noob:false, chance:7695e24,maxLvl:50,  multipliers:['x125k Oof','x2.5k Fire','x12.5k Rebirth','x251 Blaze','+31 Rune Bulk','x6 Rune Luck']},
+    {name:'Shadow',       noob:true,  chance:105e18, maxLvl:5,   multipliers:['x501 Oof','x76 Blaze','x1.25 Prism','+51 Rune Bulk','+26 Bread']},
+    {name:'Phantom',      noob:true,  chance:10e27,  maxLvl:20,  multipliers:['x20k Oof','x1k Fire','x2k Cash','x1.35 Prism','+501 Rune Bulk','+101 Bread']},
+    {name:'Atomic',       noob:true,  chance:1.33e33,maxLvl:20,  multipliers:['x20k Oof','x2k Fire','x5k Cash','x1.25 Prism','x21 Rune Bulk','x26 Tier Bulk','x2 Hack Points','x101 Bread']},
+    {name:'Chronos Core', noob:true,  chance:30.8e33,maxLvl:3,   multipliers:['x1k Fire','x521 Cash','x5k Cash','x1.05 Prism','x21 Rune Bulk','x26 Tier Bulk','x2 Wheat','x6 Wheat Points']},
+  ]},
+  { name:'Super Rune', realm:'Realm 1', color:'#f97316', runes:[
+    {name:'Initiate',      noob:false, chance:1.11,   maxLvl:1500,multipliers:['x1.5k Oof','x751 Fire']},
+    {name:'Adept',         noob:false, chance:13.3,   maxLvl:1500,multipliers:['x976 Blaze','x2.5 Rune Bulk','x Rune Luck']},
+    {name:'Veteran',       noob:false, chance:50,     maxLvl:1500,multipliers:['x12.8k Oof','x751 Fire','x189 Cash','x1.5 Rune Speed']},
+    {name:'Elite',         noob:false, chance:5e3,    maxLvl:250, multipliers:['x1.25k Rebirth','x2k Oof','x189 Cash','x1.5 Rune Speed']},
+    {name:'Champion',      noob:false, chance:200e3,  maxLvl:175, multipliers:['x2.63k Oof','x176 Fire','x76 Blaze','x290 Cash','+3 Rune Bulk']},
+    {name:'Ascended',      noob:false, chance:2e6,    maxLvl:125, multipliers:['x251 Fire','x314 Cash','x401 Cash','x1.5 Rune Speed','+6 Rune Luck']},
+    {name:'Transcendent',  noob:false, chance:50e6,   maxLvl:100, multipliers:['x3k Oof','x101 Blaze','x401 Cash','x3 Rune Luck','+6 Rune Bulk','x4 Coin']},
+    {name:'Universal',     noob:false, chance:20e21,  maxLvl:75,  multipliers:['x901 Oof','x1.12k Fire','x401 Cash','x3 Rune Luck','+10M Oof','+8.5 Tier Bulk','x51 Tier Luck','x16 Rune Bulk','x5.5 Coin']},
+    {name:'Omnipotent',    noob:false, chance:17.5e27,maxLvl:50,  multipliers:['x2k Blaze','x2.25k Fire','x2k Cash','x7 Rune Luck','+101 Rune Bulk']},
+    {name:'Eclipse',       noob:true,  chance:15e24,  maxLvl:10,  multipliers:['x1k Oof','x501 Fire','x1.25 Prism','+101 Rune Bulk']},
+    {name:'Void',          noob:true,  chance:10e30,  maxLvl:25,  multipliers:['x25k Oof','x626 Blaze','x2.5k Cash','x1.35 Prism','+1k Rune Bulk','+126 Bread']},
+    {name:'Primordial',    noob:true,  chance:25e36,  maxLvl:25,  multipliers:['x25k Oof','x1.5k Rebirth','x2.5k Cash','x51 Tier Luck','x2.5k Rebirth','x126 Wheat','x4 Wheat']},
+    {name:'Oblivion Sigil',noob:true,  chance:2.355e36,maxLvl:10, multipliers:['x100k Oof','x1.25 P.Rune Speed','x2.5k Rebirth','x1.01 Prism','x1.2 Rune Speed','x126 Wheat','x4 Wheat','x1.25 Coin']},
+  ]},
+  { name:'Advanced Rune', realm:'Realm 1', color:'#f87171', runes:[
+    {name:'Little',          noob:false, chance:1.01,   maxLvl:600, multipliers:['x1.2k Oof','x3.5 Wheat']},
+    {name:'Lesser',          noob:false, chance:100e3,  maxLvl:500, multipliers:['x251 Cash','x1.5k Rebirth','x2k Oof','x6 Wheat']},
+    {name:'Standard',        noob:false, chance:1e6,    maxLvl:400, multipliers:['x201 Fire','x801 Cash','x2k Oof','x31 Blaze','x3.5 Bread']},
+    {name:'Greater',         noob:false, chance:50e6,   maxLvl:300, multipliers:['x451 Fire','x601 Rebirth','x2k Oof','x31 Blaze','x6 Wheat']},
+    {name:'Superior',        noob:false, chance:200e6,  maxLvl:200, multipliers:['x601 Rebirth','x1.5k Rebirth','x76 Blaze','x2.5 Oof','+11 Bread']},
+    {name:'Prime',           noob:false, chance:100e9,  maxLvl:150, multipliers:['x751 Cash','x2.5k Oof','x6 Rune Luck','+16 Wheat']},
+    {name:'Apex',            noob:false, chance:1e12,   maxLvl:125, multipliers:['x501 Fire','x939 Cash','x2.5k Oof','x4 Rune Bulk','+16 Bread']},
+    {name:'Ethereal',        noob:false, chance:50e12,  maxLvl:100, multipliers:['x1k Cash','x2.75k Oof','x3k Rebirth','x101 Blaze','x4 Rune Bulk','x6 Rune Luck','+16 Bread']},
+    {name:'Divine',          noob:false, chance:200e15, maxLvl:75,  multipliers:['x601 Fire','x2.75k Oof','x3k Rebirth','x101 Blaze','x4 Rune Luck','x7 Rune Bulk','+26 Bread','x5 Rune Luck']},
+    {name:'Infinite',        noob:false, chance:17.5e27,maxLvl:50,  multipliers:['x2.5k Oof','x2k Rebirth','x751 Cash','x151 Blaze','+11 Rune Bulk','+76 Bread','x6 Dune Luck']},
+    {name:'Abyss',           noob:true,  chance:100e24, maxLvl:15,  multipliers:['x1.5k Oof','x601 Cash','x1.25 Prism','+189 Rune Bulk']},
+    {name:'Enigma',          noob:true,  chance:10e33,  maxLvl:30,  multipliers:['x30k Oof','x3k Rebirth','x751 Blaze','x1.35 Prism','+2.5k Rune Bulk','+151 Wheat','x31 Wheat']},
+    {name:"Seraphim's Tear", noob:true,  chance:400e42, maxLvl:6,   multipliers:['x60k Oof','x3k Rebirth','x601 Fire','x1.05 Prism','x13 Tier Bulk','x31 Wheat','x19 Tier Luck','x16 Tier Luck']},
+    {name:'Aetherion',       noob:true,  chance:121e36, maxLvl:4,   multipliers:['x10k Oof','x1k Fire','x1.5 Hack Points','x1.05 Prism','x13 Tier Bulk','x2 Coins']},
+  ]},
+  { name:'Cosmic Prism', realm:'Realm 1', color:'#38bdf8', runes:[
+    {name:'Lucent',         noob:false, chance:2.5,    maxLvl:127,  multipliers:['x6.35k Oof','x6.35k Cash','x128 Bread']},
+    {name:'Chroma',         noob:false, chance:4,      maxLvl:251,  multipliers:['x28.9k Oof','x16 Tier Bulk','x11 Wheat']},
+    {name:'Fractal',        noob:false, chance:20,     maxLvl:362,  multipliers:['+100 P.Rune Bulk','x101 Blaze','x16 Wheat','+1.23M Oof']},
+    {name:'Tessellation',   noob:false, chance:200,    maxLvl:2056, multipliers:['+220 P.Rune Bulk','x1.23M Oof','x101 Blaze','x4.11k Bread','+11 Rune Bulk']},
+    {name:'Hyperlight',     noob:false, chance:333,    maxLvl:2500, multipliers:['x4 P.Rune Speed','x501 Cash','x5M Oof','+11 Tier Bulk','+11 Rune Bulk']},
+    {name:'Prism God',      noob:false, chance:1e3,    maxLvl:2000, multipliers:['+400 P.Rune Bulk','x501 Fire','x10M Oof','+2.5 Rune Bulk']},
+    {name:'Prism God',      noob:false, chance:1e3,    maxLvl:2000, multipliers:['+400 P.Rune Bulk','x501 Fire','x10M Oof','+2.5 Rune Bulk']},
+    {name:'Voidglass',      noob:false, chance:1e6,    maxLvl:75,   multipliers:['x2.33 P.Rune Speed','+375 P.Rune Bulk','x1.88k Cash','x750k Oof','+21 Tier Bulk']},
+    {name:'Godshard',       noob:true,  chance:100e6,  maxLvl:25,   multipliers:['x19 P.Rune Speed','x1.25k P.Rune Bulk','x2.5M Oof','+51 Bread','+13.5 Coin']},
+    {name:'Ultimate Shard', noob:true,  chance:667e9,  maxLvl:'TBD',multipliers:['x1.05 Prism','x157 Cash','x1M Oof','x3 Bread','x1.5 Coin','+2.02 Rune Bulk','+11 Tier Luck']},
+  ]},
+  { name:'Hacker Rune', realm:'Realm 1', color:'#4ade80', runes:[
+    {name:'Script',     noob:false, chance:1.01,   maxLvl:600, multipliers:['x4 Hack Points','x1.2k Oof','x4 Wheat']},
+    {name:'Protocol',   noob:false, chance:100e15, maxLvl:500, multipliers:['x6 Hack Points','x2.5k Oof','x601 Rebirth','x201 Fire','x6 Bread','x7 Wheat']},
+    {name:'Cipher',     noob:false, chance:10e18,  maxLvl:400, multipliers:['x9 Hack Points','x3k Oof','x901 Rebirth','x6 Bread','x11 Wheat','x1.1 Rune Speed']},
+    {name:'Exploit',    noob:false, chance:1000e24,maxLvl:300, multipliers:['x13 Hack Points','x3k Oof','x1k Cash','x16 Bread']},
+    {name:'Kernel',     noob:false, chance:1e30,   maxLvl:200, multipliers:['x21 Hack Points','x1k Cash','x16 Bread']},
+    {name:'Root',       noob:false, chance:1e33,   maxLvl:150, multipliers:['x51 Hack Points','x3.75k Oof','x76 Blaze','x26 Wheat','x1.5 Rune Bulk']},
+    {name:'Backdoor',   noob:false, chance:1e36,   maxLvl:125, multipliers:['x101 Hack Points','x626 Fire','x1.25k Cash','x1.2 Rune Speed','+2 Rune Luck','+2.5 Rune Luck']},
+    {name:'Rootkit',    noob:true,  chance:1000e24,maxLvl:20,  multipliers:['x10k Oof','x2k Cash','x2k Rebirth','x501 Bread','+5 Hack Points','+2 Rune Luck']},
+    {name:'Masterkey',  noob:true,  chance:20e27,  maxLvl:30,  multipliers:['x60k Oof','x6k Fire','x3k Blaze','x1.5k Wheat','x1.5 Coin','+6 Hack Points']},
+    {name:'Stuxnet',    noob:true,  chance:69.8e30,maxLvl:22,  multipliers:['x20k Oof','x501 Fire','x3.5 Coin','x1.14 Hack Points','x8 Tier Bulk','x6 Tier Luck','x1.02 Prism']},
+  ]},
+  { name:'Snowy Rune', realm:'Realm 2', color:'#7dd3fc', runes:[
+    {name:'Snow',        noob:false, chance:1.01,    maxLvl:500, multipliers:['x1k Oof','x16 Water']},
+    {name:'Frost',       noob:false, chance:1e21,    maxLvl:400, multipliers:['x2k Oof','x21 Water','x16 Ice']},
+    {name:'Ice',         noob:false, chance:100e21,  maxLvl:300, multipliers:['x2.25k Oof','x21 Water','x26 Ice','x2 Rune Luck']},
+    {name:'Hail',        noob:false, chance:2e18,    maxLvl:200, multipliers:['x31 Water','x31 Ice','x2 Rune Bulk','x1.75 Rune Luck','x4 Coin']},
+    {name:'Glacier',     noob:false, chance:100e24,  maxLvl:150, multipliers:['x1.5k Oof','x41 Ice','x1.5 Rune Speed','+2 Rune Bulk']},
+    {name:'Blizzard',    noob:false, chance:500e39,  maxLvl:115, multipliers:['x47 Water','x58.5 Ice','x18.2 Ash','x24.8 Ash','+2 Rune Bulk']},
+    {name:'Tundra',      noob:false, chance:2e33,    maxLvl:95,  multipliers:['x1.19k Oof','x72.3 Wood','x5 Water','x951 Fire','x1.5 Rune Speed']},
+    {name:'Arctic',      noob:false, chance:4000e27, maxLvl:75,  multipliers:['x226 Oof','x31 Water','x51 Planks','x7.5k Fire','x3 Rune Luck']},
+    {name:'Permafrost',  noob:false, chance:190e63,  maxLvl:50,  multipliers:['x751 Oof','x38.5 Ice','x101 Wood','x500k Fire','x51 Ash','x5 Rune Luck','+3.5 Rune Bulk']},
+    {name:'Whiteout',    noob:true,  chance:667e36,  maxLvl:10,  multipliers:['x501 Oof','x8.5 Ice','x7.5 Cem','x9.5 Ash','x1.25 Rune Speed','+3.5 Rune Bulk']},
+    {name:'Icebound',    noob:true,  chance:10e27,   maxLvl:15,  multipliers:['x151 Oof','x3 Ice','x21 Tier Luck','x2.5 Gem','x2 Ore Damage','x1.95 Gem','x1.68 Ore Damage','x1.33 Rune Bulk']},
+    {name:'Everfrost',   noob:true,  chance:800e27,  maxLvl:'TBD',multipliers:['x101 Oof','x4 Ice','x1.95 Gem','x1.68 Ore Damage','x1.33 Rune Bulk']},
+  ]},
+  { name:'Deepcore Rune', realm:'Realm 2', color:'#fb923c', runes:[
+    {name:'Dust',         noob:false, chance:1.01,    maxLvl:500,  multipliers:['x1k Oof','x2 Ores Stats']},
+    {name:'Pebble',       noob:false, chance:10e18,   maxLvl:400,  multipliers:['x3 Gem','x801 Oof','x2.1 Ores Stats','x11 Ice']},
+    {name:'Hollow',       noob:false, chance:20e18,   maxLvl:300,  multipliers:['x15k Fire','x1.14 Ore Damage','x5 Gem','x21 Ice']},
+    {name:'Echo',         noob:false, chance:10e24,   maxLvl:'TBD',multipliers:['x369 Oof','x2.2 Ores Stats','x2 Rune Luck','x51 Ice']},
+    {name:'Stalagmite',   noob:false, chance:200e24,  maxLvl:'TBD',multipliers:['x157 Oof','x1.14 Ore Damage','x1.5 Gem','x10.8 Fire','x81 Ice']},
+    {name:'Cavern',       noob:false, chance:500e27,  maxLvl:'TBD',multipliers:['x106 Oof','x2.25 Gem','x15 Water','x1.35 Rune Luck']},
+    {name:'Crystalborn',  noob:false, chance:10e30,   maxLvl:'TBD',multipliers:['x1.14 Ore Damage','x1.65 Ores Stats','x2.5 Ice','x2.25 Rune Luck']},
+    {name:'Earthshaker',  noob:false, chance:10e33,   maxLvl:'TBD',multipliers:['x2 Gem','x2.5 Ore Damage','x1.12 Rune Bulk','x1.03 Rune Speed']},
+    {name:'Golemheart',   noob:false, chance:100e36,  maxLvl:'TBD',multipliers:['x3.5 Gem','x3.5 Ore Damage','x10k Oof','x1.1 Rune Luck']},
+    {name:'Stone Titan',  noob:true,  chance:28.6e33, maxLvl:'TBD',multipliers:['TBD']},
+    {name:'Cave Guardian',noob:true,  chance:5e63,    maxLvl:'TBD',multipliers:['TBD']},
+    {name:'Deep Spirit',  noob:true,  chance:2.5e63,  maxLvl:'TBD',multipliers:['TBD']},
+  ]},
+  { name:'Football Rune', realm:'Events', color:'#4ade80', runes:[
+    {name:'Scuff',   noob:false, chance:1.12,    maxLvl:1500, multipliers:['x5 Goals','x151 Oof']},
+    {name:'Fade',    noob:false, chance:10,       maxLvl:1200, multipliers:['x7 Goals','x241 Rebirth']},
+    {name:'Stitch',  noob:false, chance:1000,     maxLvl:1000, multipliers:['x10 Goals','x151 Fire']},
+    {name:'Kickoff', noob:false, chance:100e3,    maxLvl:600,  multipliers:['x14 Goals','x106 Cash']},
+    {name:'Dribble', noob:false, chance:10e6,     maxLvl:400,  multipliers:['x19 Goals','x4 Coin','+400 F. Rune Bulk']},
+    {name:'Tackle',  noob:false, chance:1e12,     maxLvl:250,  multipliers:['x26 Goals','x16 Water','x11 Wheat','x2 F. Rune Luck']},
+    {name:'Corner',  noob:false, chance:100e15,   maxLvl:150,  multipliers:['x4.5 Goals','x13 Gem','x13 Bread','+225 F. Rune Bulk']},
+    {name:'Volley',  noob:false, chance:356e3,    maxLvl:100,  multipliers:['x41 Goals','x5 Ash','x4 F. Rune Luck']},
+    {name:'Header',  noob:false, chance:3.56e15,  maxLvl:33,   multipliers:['x24.1 Goals','x19.1 Tier Luck','x15.8 Tier Bulk','x2.65 F. Rune Luck','x4.3 F. Rune Bulk']},
+    {name:'Finale',  noob:true,  chance:10e18,    maxLvl:15,   multipliers:['x2.2 Goals','x2 Oof','x1.3 Cash','x1.8 Fire','x3 F. Rune Bulk','x1.08 F. Rune Luck']},
+    {name:'Victory', noob:true,  chance:15e24,    maxLvl:'TBD',multipliers:['TBD']},
+    {name:'Iconic',  noob:true,  chance:100e24,   maxLvl:'TBD',multipliers:['TBD']},
+  ]},
+];
+
+
+let activeRuneCat = 0;
+let activeRunelistCat = 0;
+
+// Build runelist tabs grouped by realm
+(function(){
+  const tabsEl = document.getElementById('runelistTabs');
+  const realms = [...new Set(RUNE_CATS.map(c=>c.realm))];
+  realms.forEach(realm => {
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:10px 0 5px;width:100%;';
+    label.textContent = realm;
+    tabsEl.appendChild(label);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;';
+    RUNE_CATS.forEach((cat, i) => {
+      if(cat.realm !== realm) return;
+      const t = document.createElement('div');
+      t.className = 'rcat' + (i===0?' active':'');
+      t.textContent = cat.name;
+      t.onclick = () => {
+        document.querySelectorAll('#runelistTabs .rcat').forEach(x=>x.classList.remove('active'));
+        t.classList.add('active');
+        activeRunelistCat = i;
+        renderRuneList();
+      };
+      row.appendChild(t);
+    });
+    tabsEl.appendChild(row);
+  });
+  renderRuneList();
+})();
+
+function renderRuneList(){
+  const cat = RUNE_CATS[activeRunelistCat];
+  const grid = document.getElementById('runelistGrid');
+  grid.innerHTML = '';
+  cat.runes.forEach(r => {
+    const card = document.createElement('div');
+    card.className = 'rune-card' + (r.noob?' noobinial':'');
+    card.style.setProperty('--rune-col', cat.color);
+    const lid = 'l'+Math.random().toString(36).slice(2);
+    card.innerHTML = `
+      <div class="rune-name">${r.noob?'':''}${r.name}</div>
+      <div class="rune-tag">${r.noob?'Noobinial':'Basic'}</div>
+      <div class="rune-card-tabs">
+        <div class="rcard-tab active" onclick="event.stopPropagation();switchRTab('${lid}','info',this)">Info</div>
+        <div class="rcard-tab" onclick="event.stopPropagation();switchRTab('${lid}','multipliers',this)">Multipliers</div>
+      </div>
+      <div class="rcard-panel active" id="rtab-info-${lid}">
+        <div class="rune-row"><span class="rune-row-label">Chance</span><span class="rune-val">1 / ${fmtNum(r.chance)}</span></div>
+        <div class="rune-row"><span class="rune-row-label">Max Level</span><span class="rune-val" style="color:var(--text)">${r.maxLvl}</span></div>
+      </div>
+      <div class="rcard-panel" id="rtab-multipliers-${lid}">
+        <div class="multiplier-list">${r.multipliers.map(b=>`<div class="multiplier-item">${b}</div>`).join('')}</div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// Build tabs grouped by realm
+(function(){
+  const tabsEl = document.getElementById('runeCatTabs');
+  const realms = [...new Set(RUNE_CATS.map(c=>c.realm))];
+  realms.forEach(realm => {
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:10px 0 5px;width:100%;';
+    label.textContent = realm;
+    tabsEl.appendChild(label);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;';
+    RUNE_CATS.forEach((cat, i) => {
+      if(cat.realm !== realm) return;
+      const t = document.createElement('div');
+      t.className = 'rcat' + (i===0?' active':'');
+      t.textContent = cat.name;
+      t.onclick = () => {
+        document.querySelectorAll('.rcat').forEach(x=>x.classList.remove('active'));
+        t.classList.add('active');
+        activeRuneCat = i;
+        switchRunePanel();
+        renderRuneCards();
+      };
+      row.appendChild(t);
+    });
+    tabsEl.appendChild(row);
+  });
+})();
+
+function getRuneRPS(){
+  let bulk = parseNum(document.getElementById('runeBulk').value)||0;
+  let cd = parseFloat(document.getElementById('runeCooldown').value)||0.05;
+  if(document.getElementById('potBulk').checked)  bulk *= 2;
+  if(document.getElementById('potSpeed').checked) cd /= 2;
+  return bulk / Math.max(0.001, cd);
+}
+function getRuneLuck(){
+  let luck = parseNum(document.getElementById('runeLuck').value)||1;
+  if(document.getElementById('potLuck').checked) luck *= 2;
+  if(document.getElementById('friendBoost').checked){
+    const f = Math.min(5, parseInt(document.getElementById('friendCount').value)||0);
+    luck *= (1 + f * 0.1);
+  }
+  return Math.max(1, luck);
+}
+
+function calcFootballRune(){
+  const bulk = parseNum(document.getElementById('footballRuneBulk').value)||0;
+  const cd = parseFloat(document.getElementById('footballRuneSpeed').value)||0.05;
+  const luck = parseNum(document.getElementById('footballRuneLuck').value)||1;
+  const rps = bulk / Math.max(0.001, cd);
+  document.getElementById('footballRuneErps').textContent = fmtNum(rps)+'/s';
+  renderRuneCards();
+}
+
+function calcPrismRune(){
+  const bulk = parseNum(document.getElementById('prismRuneBulk').value)||0;
+  const cd = parseFloat(document.getElementById('prismRuneSpeed').value)||0.05;
+  const luck = parseNum(document.getElementById('prismRuneLuck').value)||1;
+  const rps = bulk / Math.max(0.001, cd);
+  document.getElementById('prismRuneErps').textContent = fmtNum(rps)+'/s';
+  renderRuneCards();
+}
+
+function getRuneRPSForCurrent(){
+  const name = RUNE_CATS[activeRuneCat].name;
+  if(name === 'Cosmic Prism'){
+    const bulk = parseNum(document.getElementById('prismRuneBulk').value)||0;
+    const cd = parseFloat(document.getElementById('prismRuneSpeed').value)||0.05;
+    return bulk / Math.max(0.001, cd);
+  }
+  if(name === 'Football Rune'){
+    const bulk = parseNum(document.getElementById('footballRuneBulk').value)||0;
+    const cd = parseFloat(document.getElementById('footballRuneSpeed').value)||0.05;
+    return bulk / Math.max(0.001, cd);
+  }
+  return getRuneRPS();
+}
+
+function getRuneLuckForCurrent(){
+  const name = RUNE_CATS[activeRuneCat].name;
+  if(name === 'Cosmic Prism') return parseNum(document.getElementById('prismRuneLuck').value)||1;
+  if(name === 'Football Rune') return parseNum(document.getElementById('footballRuneLuck').value)||1;
+  return getRuneLuck();
+}
+
+function switchRunePanel(){
+  const name = RUNE_CATS[activeRuneCat].name;
+  const isCos = name === 'Cosmic Prism';
+  const isFoot = name === 'Football Rune';
+  document.querySelector('.rune-layout > div:first-child').style.display = (isCos||isFoot) ? 'none' : 'flex';
+  document.getElementById('cosmicStatsPanel').style.display = isCos ? 'flex' : 'none';
+  document.getElementById('footballStatsPanel').style.display = isFoot ? 'flex' : 'none';
+}
+
+function calcRunePage(){
+  const rps = getRuneRPS();
+  document.getElementById('runeErps').textContent = fmtNum(rps)+'/s';
+  renderRuneCards();
+}
+
+function switchRTab(uid, tab, el){
+  el.closest('.rune-card').querySelectorAll('.rcard-tab').forEach(t=>t.classList.remove('active'));
+  el.closest('.rune-card').querySelectorAll('.rcard-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('rtab-'+tab+'-'+uid).classList.add('active');
+}
+
+function renderRuneCards(){
+  const cat = RUNE_CATS[activeRuneCat];
+  const rps = getRuneRPSForCurrent();
+  const luck = getRuneLuckForCurrent();
+  const grid = document.getElementById('runeCardGrid');
+  grid.innerHTML = '';
+
+  cat.runes.forEach(r => {
+    // Noobinial: luck doesn't apply, only bulk (rps)
+    // effective chance denominator
+    const effChance = r.noob ? r.chance : r.chance / luck;
+    // rolls per second to get 1 of this rune
+    const ratePerSec = rps / effChance;
+    // ETA in seconds
+    const eta = effChance / rps;
+    // Viability: recommended if rps >= chance/1000
+    const threshold = effChance / 1000;
+    const viable = rps > 0 && rps >= threshold;
+    const close = rps > 0 && rps >= threshold / 10 && rps < threshold;
+
+    let etaClass = 'na', etaStr = '—';
+    if(rps > 0 && isFinite(eta)){
+      etaStr = fmtTime(eta);
+      etaClass = viable ? 'good' : (close ? 'warn' : 'bad');
+    }
+
+    const card = document.createElement('div');
+    card.className = 'rune-card' + (r.noob?' noobinial':'');
+    card.style.setProperty('--rune-col', cat.color);
+    card.innerHTML = `
+      <div class="rune-name">${r.noob?'':''}${r.name}</div>
+      <div class="rune-tag">${r.noob?'Noobinial':'Basic'}</div>
+      <div class="rune-row"><span class="rune-row-label">Chance</span><span class="rune-val">1 / ${fmtNum(r.chance)}</span></div>
+      ${!r.noob?`<div class="rune-row"><span class="rune-row-label">With luck</span><span class="rune-val">1 / ${fmtNum(effChance)}</span></div>`:''}
+      <div style="border-top:1px solid var(--border);margin:8px 0"></div>
+      <div class="rune-row">
+        <span class="rune-row-label">ETA</span>
+        <span class="rune-eta ${etaClass}">${etaStr}</span>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+calcRunePage();
+
+
+/* ══ FACTORY DATA ══ */
+const TIERS=[
+  {id:1,label:'Tier 1',max:'100K',  value:1,    unknown:false},
+  {id:2,label:'Tier 2',max:'15K',   value:5,    unknown:false},
+  {id:3,label:'Tier 3',max:'200K',  value:25,   unknown:false},
+  {id:4,label:'Tier 4',max:'4K',    value:125,  unknown:false},
+  {id:5,label:'Tier 5',max:'80K',   value:625,  unknown:false},
+  {id:6,label:'Tier 6',max:'956',   value:3125, unknown:false},
+  {id:7,label:'Tier 7',max:'58K+',  value:15625,unknown:true},
+];
+
+let convPct=10;
+function setConvPct(pct,el){
+  convPct=pct;
+  document.querySelectorAll('.pct-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  calcFactory();
+}
+
+(function(){
+  const grid=document.getElementById('tierGrid');
+  if(!grid) return;
+  TIERS.forEach(t=>{
+    const card=document.createElement('div');
+    card.className='tier-card';
+    const maxStr=t.unknown?'MAX: ~'+t.max+' (Unknown)':'MAX: '+t.max;
+    card.innerHTML=`
+      <div class="tier-title">${t.label} (${maxStr})</div>
+      <div class="tier-value">Value: ${t.value.toLocaleString()}</div>
+      <div class="tier-hw">
+        <div><div class="tier-hw-label">Have</div><input type="number" id="have${t.id}" value="0" min="0" oninput="calcFactory()"></div>
+        <div><div class="tier-hw-label">Want</div><input type="number" id="want${t.id}" value="0" min="0" oninput="calcFactory()"></div>
+      </div>
+      <div class="tier-status" id="status${t.id}">No Target</div>
+    `;
+    grid.appendChild(card);
+  });
+})();
+
+function buildConvRows(){
+  const rows=document.getElementById('convRows');
+  if(!rows) return;
+  rows.innerHTML='';
+  for(let i=1;i<TIERS.length;i++){
+    const from=TIERS[i-1],to=TIERS[i];
+    const costEach=to.value/from.value;
+    const have=parseFloat(document.getElementById('have'+from.id).value)||0;
+    const useAmt=Math.floor(have*(convPct/100));
+    const gain=Math.floor(useAmt/costEach);
+    const row=document.createElement('div');
+    row.className='conv-row';
+    row.innerHTML=`
+      <div class="conv-tier">${to.label}</div>
+      <div class="conv-cost">${useAmt.toLocaleString()} (${from.label})</div>
+      <div class="conv-gain">+${gain.toLocaleString()}</div>
+    `;
+    rows.appendChild(row);
+  }
+}
+
+function calcFactory(){
+  const pps=parseNum(document.getElementById('factoryPPS').value)||0;
+  let totalT1=0;
+  TIERS.forEach(t=>{
+    const have=parseFloat(document.getElementById('have'+t.id).value)||0;
+    const want=parseFloat(document.getElementById('want'+t.id).value)||0;
+    const need=Math.max(0,want-have);
+    totalT1+=need*t.value;
+    const st=document.getElementById('status'+t.id);
+    if(want<=0){st.textContent='No Target';st.className='tier-status';}
+    else if(need<=0){st.textContent='✓ Reached';st.className='tier-status';}
+    else{st.textContent='Need '+need.toLocaleString()+' more';st.className='tier-status need';}
+  });
+  const req=document.getElementById('factoryRequiredT1');
+  if(req) req.textContent=totalT1.toLocaleString();
+  if(pps>0&&totalT1>0){
+    const secs=totalT1/pps;
+    const d=Math.floor(secs/86400),h=Math.floor((secs%86400)/3600),m=Math.floor((secs%3600)/60),s=Math.floor(secs%60);
+    document.getElementById('timeDays').textContent='Days: '+d;
+    document.getElementById('timeHours').textContent='Hours: '+h;
+    document.getElementById('timeHMS').textContent=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    const done=new Date(Date.now()+secs*1000);
+    document.getElementById('timeDate').textContent=(done.getMonth()+1)+'/'+done.getDate()+'/'+done.getFullYear();
+  } else {
+    document.getElementById('timeDays').textContent='Days: 0';
+    document.getElementById('timeHours').textContent='Hours: 0';
+    document.getElementById('timeHMS').textContent='00:00:00';
+    document.getElementById('timeDate').textContent='--/--/--';
+  }
+  buildConvRows();
+}
+
+calcFactory();
+
+
+
+
+
+/* ══ PRISM CALCULATOR ══ */
+function calcPrism(){
+  const amt = parseNum(document.getElementById('prismAmt').value);
+  const cycle = parseFloat(document.getElementById('prismCycle').value)||18;
+  if(!amt||isNaN(amt)){
+    document.getElementById('prismTimeGrid').innerHTML='';
+    return;
+  }
+  const perSec = amt/cycle;
+
+
+  const times = [
+    {label:'30 minutes', secs:1800},
+    {label:'1 hour', secs:3600},
+    {label:'2 hours', secs:7200},
+    {label:'6 hours', secs:21600},
+    {label:'12 hours', secs:43200},
+    {label:'1 day', secs:86400},
+    {label:'2 days', secs:172800},
+    {label:'1 week', secs:604800},
+    {label:'2 weeks', secs:1209600},
+    {label:'1 month', secs:2592000},
+  ];
+  const grid = document.getElementById('prismTimeGrid');
+  grid.innerHTML = times.map(t=>`
+    <div class="stat-card">
+      <div class="stat-label">${t.label}</div>
+      <div class="stat-value" style="font-size:18px">${fmtNum(perSec*t.secs)}</div>
+      <div class="stat-sub">prisms</div>
+    </div>
+  `).join('');
+}
+
+
+/* ══ SETTINGS ══ */
+function openSettings(){
+  document.getElementById('settingsModal').style.display='flex';
+}
+function closeSettings(){
+  document.getElementById('settingsModal').style.display='none';
+}
+document.getElementById('settingsModal').addEventListener('click',function(e){
+  if(e.target===this) closeSettings();
+});
+
+function gatherData(){
+  const data={version:1,timestamp:Date.now(),fields:{}};
+  document.querySelectorAll('input,select').forEach(el=>{
+    if(el.id) data.fields[el.id]=el.type==='checkbox'?el.checked:el.value;
+  });
+  return data;
+}
+function exportData(){
+  const data=gatherData();
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='nic-data.json';a.click();
+  URL.revokeObjectURL(url);
+  showSettingsMsg('Data exported!');
+}
+function importData(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(data.fields){
+        Object.entries(data.fields).forEach(([id,val])=>{
+          const el=document.getElementById(id);
+          if(el){
+            if(el.type==='checkbox')el.checked=val;
+            else el.value=val;
+            el.dispatchEvent(new Event('input'));
+            el.dispatchEvent(new Event('change'));
+          }
+        });
+        showSettingsMsg('Data imported successfully!');
+      }
+    }catch(err){showSettingsMsg('Error: invalid file.');}
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+function clearData(){
+  if(!confirm('Clear all saved data? This cannot be undone.'))return;
+  document.querySelectorAll('input').forEach(el=>{
+    if(el.type==='checkbox')el.checked=false;
+    else if(el.type==='number')el.value=el.defaultValue||0;
+    else el.value='';
+    el.dispatchEvent(new Event('input'));
+    el.dispatchEvent(new Event('change'));
+  });
+  showSettingsMsg('All data cleared.');
+}
+function showSettingsMsg(msg){
+  const el=document.getElementById('settingsMsg');
+  el.textContent=msg;
+  setTimeout(()=>{el.textContent='';},3000);
+}
+
+/* ══ STAR FIELD ══ */
+(function(){
+  const canvas=document.getElementById('stars-canvas');
+  const ctx=canvas.getContext('2d');
+  let W,H,stars=[];
+  const N=220;
+
+  function resize(){
+    W=canvas.width=window.innerWidth;
+    H=canvas.height=window.innerHeight;
+  }
+
+  function mkStar(){
+    return {
+      x:Math.random()*W,
+      y:Math.random()*H,
+      r:Math.random()*1.4+0.2,
+      a:Math.random(),
+      da:(Math.random()-0.5)*0.003,
+      vx:(Math.random()-0.5)*0.06,
+      vy:(Math.random()-0.5)*0.06,
+    };
+  }
+
+  function init(){
+    resize();
+    stars=Array.from({length:N},mkStar);
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(const s of stars){
+      s.a+=s.da;
+      if(s.a<=0){s.a=0;s.da*=-1;}
+      if(s.a>=1){s.a=1;s.da*=-1;}
+      s.x=(s.x+s.vx+W)%W;
+      s.y=(s.y+s.vy+H)%H;
+      ctx.save();
+      ctx.globalAlpha=s.a*0.85;
+      ctx.fillStyle='#fff';
+      ctx.shadowBlur=s.r>1?6:0;
+      ctx.shadowColor='rgba(180,170,255,0.8)';
+      ctx.beginPath();
+      ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize',()=>{resize();});
+  init(); draw();
+})();
+
+</script>
+</body>
+</html>
